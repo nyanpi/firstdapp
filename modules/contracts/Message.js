@@ -38,19 +38,35 @@ Message.prototype.getBytes = function (trs) {
 }
 
 Message.prototype.apply = function (trs, sender, cb, scope) {
-	setImmediate(cb);
+    modules.blockchain.accounts.mergeAccountAndGet({
+        address: sender.address,
+        balance: -trs.fee
+    }, cb);
 }
 
 Message.prototype.undo = function (trs, sender, cb, scope) {
-	setImmediate(cb);
+    modules.blockchain.accounts.undoMerging({
+        address: sender.address,
+        balance: -trs.fee
+    }, cb);
 }
 
 Message.prototype.applyUnconfirmed = function (trs, sender, cb, scope) {
-	setImmediate(cb);
+    if (sender.u_balance < trs.fee) {
+        return setImmediate(cb, "Sender doesn't have enough coins");
+    }
+
+    modules.blockchain.accounts.mergeAccountAndGet({
+        address: sender.address,
+        u_balance: -trs.fee
+    }, cb);
 }
 
 Message.prototype.undoUnconfirmed = function (trs, sender, cb, scope) {
-	setImmediate(cb);
+    modules.blockchain.accounts.undoMerging({
+        address: sender.address,
+        u_balance: -trs.fee
+    }, cb);
 }
 
 Message.prototype.ready = function (trs, sender, cb, scope) {
@@ -58,11 +74,23 @@ Message.prototype.ready = function (trs, sender, cb, scope) {
 }
 
 Message.prototype.save = function (trs, cb) {
-	setImmediate(cb);
+    modules.api.sql.insert({
+        table: "asset_messages",
+        values: {
+            transactionId: trs.id,
+            message: trs.asset.message
+        }
+    }, cb);
 }
 
 Message.prototype.dbRead = function (row) {
-	return null;
+    if (!row.tm_transactionId) {
+        return null;
+    } else {
+        return {
+            message: row.tm_message
+        };
+    }
 }
 
 Message.prototype.normalize = function (asset, cb) {
@@ -83,6 +111,12 @@ Message.prototype.normalize = function (asset, cb) {
 Message.prototype.onBind = function (_modules) {
 	modules = _modules;
 	modules.logic.transaction.attachAssetType(self.type, self);
+}
+
+Message.prototype.add = function (cb, query) {
+}
+
+Message.prototype.list = function (cb, query) {
 }
 
 module.exports = Message;
