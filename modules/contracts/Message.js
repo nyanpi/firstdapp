@@ -9,19 +9,32 @@ function Message(cb, _library) {
 }
 
 Message.prototype.create = function (data, trs) {
-	return trs;
+    // recipient
+    trs.recipientId = data.recipientId;
+
+    // Create transaction container
+    trs.asset = {
+        message: new Buffer(data.message, 'utf8').toString('hex') // Save message as hex string
+    };
+
+    return trs;
 }
 
 Message.prototype.calculateFee = function (trs) {
-	return 0;
+    return 100000000;
 }
 
 Message.prototype.verify = function (trs, sender, cb, scope) {
-	setImmediate(cb, null, trs);
+    // Check if message length is greater than 320 characters
+    if (trs.asset.message.length > 320) {
+        return setImmediate(cb, "Max length of message is 320 characters.");
+    }
+
+    setImmediate(cb, null, trs);
 }
 
 Message.prototype.getBytes = function (trs) {
-	return null;
+    return new Buffer(trs.asset.message, 'hex');
 }
 
 Message.prototype.apply = function (trs, sender, cb, scope) {
@@ -53,7 +66,18 @@ Message.prototype.dbRead = function (row) {
 }
 
 Message.prototype.normalize = function (asset, cb) {
-	setImmediate(cb);
+    // Call validator on our asset object
+    library.validator.validate(asset, {
+        type: "object", // It is an object
+        properties: {
+            message: { // It contains a message property
+                type: "string", // It is a string
+                format: "hex", // It is in a hexadecimal format
+                minLength: 1 // Minimum length of string is 1 character
+            }
+        },
+        required: ["message"] // Message property is required and must be defined
+    }, cb);
 }
 
 Message.prototype.onBind = function (_modules) {
